@@ -72,7 +72,10 @@ int main()
 		       printf("%d ", nodes[n].cpu_list[cpu]);
 		}
 		printf("\n");
+		free(nodes[n].cpu_list);
 	}
+
+	free(nodes);
 
 err_range:
 	numa_free_cpumask(cm);
