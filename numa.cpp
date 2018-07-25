@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <algorithm>
+#include <iostream>
 
 #define RESET_MASK(x)		~(1LL << (x))
 
@@ -15,33 +16,86 @@ struct node {
 	std::vector<uint32_t> cpu_list;
 };
 
+class Numa {
+	public:
+		Numa() : numa_present(!numa_available())
+		{
+			if (numa_present) {
+				max_node = numa_max_node();
+				max_possible_node = numa_max_possible_node();
+				num_possible_nodes = numa_num_possible_nodes();
+				num_configured_nodes =numa_num_configured_nodes();
+
+				num_configured_cpus =numa_num_configured_cpus();
+				num_possible_cpus =numa_num_possible_cpus();
+			}
+		}
+
+		inline bool isNumaAvailable(void) const {
+			return numa_present;
+		}
+
+		friend std::ostream& operator<<(std::ostream &os, const Numa &n) {
+			printf("NUMA available: %s\n", n.numa_present ? "true" : "false");
+			printf("Node config:\n");
+			printf("\tnuma_num_possible_nodes: %d\n", n.num_possible_nodes);
+			printf("\tnuma_num_configured_nodes: %d\n", n.num_configured_nodes);
+			printf("CPU config:\n");
+			printf("\tnuma_num_possible_cpus: %d\n", n.num_possible_cpus);
+			printf("\tnuma_num_configured_cpus: %d\n", n.num_configured_cpus);
+			return os;
+		}
+
+		const int get_num_nodes() const {
+			return num_configured_nodes;
+		}
+
+		void append_node(struct node &node) {
+			nodes.push_back(node);
+		}
+
+		void print_numa_nodes(void) {
+			std::for_each(nodes.begin(), nodes.end(), [](auto &node) {
+				printf("Node: %d cpu_bitmask: 0x%08lx | num_cpus: %d\n\t",
+						node.id, node.cpu_bitmask, node.num_cpus);
+				std::for_each(node.cpu_list.begin(), node.cpu_list.end(), [](uint32_t &cpu) {
+							printf("%d ", cpu);
+						});
+				printf("\n");
+			});
+
+		}
+
+	private:
+		int numa_present;
+		int max_node;
+		int max_possible_node;
+		int num_possible_nodes;
+		int num_configured_nodes;
+		int num_configured_cpus;
+		int num_possible_cpus;
+		int num_nodes;
+		std::vector<struct node> nodes;
+};
+
 int main()
 {
 	struct bitmask *cm;
 	int num_nodes;
 	unsigned long cpu_bmap;
-	int numa_present;
 	auto ret = 0;
-	std::vector<struct node> nodes;
 
-	// numa_available returns 0 if numa apis are available, else -1
-	if ((ret = numa_present = numa_available())) {
+	Numa _n;
+
+	if (!_n.isNumaAvailable()) {
 		printf("Numa apis unavailable!\n");
 		goto err_numa;
 	}
 
-	printf("numa_available: %s\n", numa_present ? "false" : "true");
-
-	printf("numa_max_possible_node: %d\n", numa_max_possible_node());
-	printf("numa_num_possible_nodes: %d\n", numa_num_possible_nodes());
-	printf("numa_max_node: %d\n", numa_max_node());
-
-	num_nodes = numa_num_configured_nodes();
+	num_nodes = _n.get_num_nodes();
 	cm = numa_allocate_cpumask();
 
-	printf("numa_num_configured_nodes: %d\n", num_nodes);
-	printf("numa_num_configured_cpus: %d\n", numa_num_configured_cpus());
-	printf("numa_num_possible_cpus: %d\n", numa_num_possible_cpus());
+	std::cout << _n;
 
 	for (auto n = 0; n < num_nodes; n++) {
 		struct node node;
@@ -61,18 +115,9 @@ int main()
 			cpu_bmap &= RESET_MASK(c);
 			node.cpu_list.push_back(c);
 		}
-		nodes.push_back(node);
+		_n.append_node(node);
 	}
-
-	std::for_each(nodes.begin(), nodes.end(), [](auto &node) {
-		printf("Node: %d cpu_bitmask: 0x%08lx | num_cpus: %d\n",
-				node.id, node.cpu_bitmask, node.num_cpus);
-		std::for_each(node.cpu_list.begin(), node.cpu_list.end(), [](uint32_t &cpu) {
-					printf("%d ", cpu);
-				});
-		printf("\n");
-	});
-
+	_n.print_numa_nodes();
 
 err_range:
 	numa_free_cpumask(cm);
