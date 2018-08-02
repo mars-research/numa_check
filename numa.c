@@ -5,14 +5,22 @@
 #define _GNU_SOURCE
 #define RESET_MASK(x)		~(1LL << (x))
 
-
 struct node {
 	unsigned long cpu_bitmask;
 	unsigned int num_cpus;
 	uint32_t *cpu_list;
 };
 
-struct node *nodes;
+struct numa_config {
+	int num_nodes;
+	int total_cpus;
+	struct node *nodes;
+};
+
+struct task_placement {
+	uint32_t *producer_cpus;
+	uint32_t *consumer_cpus;
+};
 
 int main()
 {
@@ -22,10 +30,19 @@ int main()
 	unsigned long cpu_bmap;
 	int numa_present;
 	int ret = 0;
+	struct numa_config *config;
 
+	struct node *nodes;
 	// numa_available returns 0 if numa apis are available, else -1
 	if ((ret = numa_present = numa_available())) {
 		printf("Numa apis unavailable!\n");
+		goto err_numa;
+	}
+
+	config = calloc(1, sizeof(struct numa_config));
+
+	if (!config) {
+		perror("calloc:");
 		goto err_numa;
 	}
 
@@ -35,10 +52,10 @@ int main()
 	printf("numa_num_possible_nodes: %d\n", numa_num_possible_nodes());
 	printf("numa_max_node: %d\n", numa_max_node());
 
-	num_nodes = numa_num_configured_nodes();
+	config->num_nodes = num_nodes = numa_num_configured_nodes();
 	cm = numa_allocate_cpumask();
 
-	nodes = calloc(sizeof(struct node), num_nodes);
+	config->nodes = nodes = calloc(num_nodes, sizeof(struct node));
 
 	printf("numa_num_configured_nodes: %d\n", numa_num_configured_nodes());
 	printf("numa_num_configured_cpus: %d\n", numa_num_configured_cpus());
