@@ -22,6 +22,23 @@ struct task_placement {
 	uint32_t *consumer_cpus;
 };
 
+/**
+ * These are some preliminary ideas for numa policies. This may not be sufficient to cover all
+ * possible cases.
+ * Policies:
+ * PROD_CONS_SEPARATE_NODES - This mode is to stress the framework as running producers and consumers on
+ * different numa nodes
+ * PROD_CONS_SAME_NODES - Run producers and consumers on the same numa node. Of course, this is bounded by
+ * the number of cpus available on a numa node. prod + cons <= node_x_cpus
+ * PROD_CONS_MIXED_MODE - the affinity does not matter. Just run it as long as you can tie this thread to
+ * a cpu.
+ */
+enum numa_policy {
+	PROD_CONS_SEPARATE_NODES = 1,
+	PROD_CONS_SAME_NODES = 2,
+	PROD_CONS_MIXED_MODE = 3,
+};
+
 int main()
 {
 	struct bitmask *cm;
