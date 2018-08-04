@@ -17,11 +17,6 @@ struct numa_config {
 	struct node *nodes;
 };
 
-struct task_placement {
-	uint32_t *producer_cpus;
-	uint32_t *consumer_cpus;
-};
-
 /**
  * These are some preliminary ideas for numa policies. This may not be sufficient to cover all
  * possible cases.
@@ -37,7 +32,14 @@ enum numa_policy {
 	PROD_CONS_SEPARATE_NODES = 1,
 	PROD_CONS_SAME_NODES = 2,
 	PROD_CONS_MIXED_MODE = 3,
+	NUM_POLICIES,
 };
+
+struct task_placement {
+	uint32_t *producer_cpus;
+	uint32_t *consumer_cpus;
+}policies[NUM_POLICIES];
+
 
 int main()
 {
